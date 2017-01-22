@@ -1,5 +1,4 @@
 .build
-.mbed
 projectfiles
 BUILD
 *.py*
