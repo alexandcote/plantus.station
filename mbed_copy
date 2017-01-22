@@ -1,0 +1,13 @@
+FILE=$1
+DEST=$2
+
+while [ 1 ]
+do
+  if [ -f $FILE ];
+  then
+    mv $FILE $DEST
+    echo "File $FILE exists."
+  fi
+  sleep 1
+done
+
