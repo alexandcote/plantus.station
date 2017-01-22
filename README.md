@@ -17,6 +17,7 @@ mbed import git@github.com:alexandcote/plantus-station.git plantus-station
 
 Compile the project
 ```
+cd plantus-station
 mbed compile -m LPC1768 -t GCC_ARM
 ```
 
