@@ -17,11 +17,11 @@ mbed import git@github.com:alexandcote/plantus.station.git plantus.station
 
 Compile the project
 ```
-cd plantus-station
+cd plantus.station
 mbed compile -m LPC1768 -t GCC_ARM
 ```
 
 Run the script to copy the binary file on the MBED
 ```
-./mbed_copy BUILD/LPC1768/GCC_ARM/plantus-station.bin /Volumes/MBED
+./mbed_copy BUILD/LPC1768/GCC_ARM/plantus.station.bin /Volumes/MBED
 ```
