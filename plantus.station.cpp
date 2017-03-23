@@ -221,22 +221,22 @@ void httpGet() {
 
     // Show the network address
     const char *ip = net.get_ip_address();
-    DEBUG_PRINTXYNL(DEBUG, "IP address is: %s", ip ? ip : "No IP");
+    DEBUG_PRINTXY(DEBUG, "IP address is: %s", ip ? ip : "No IP");
 
     // Open a socket on the network interface, and create a TCP connection to mbed.org
     TCPSocket socket;
     socket.open(&net);
-    socket.connect("192.168.2.1", 8000);
+    socket.connect("api.plantus.xyz", 80);
 
     // Send a simple http request
-    char sbuffer[] = "GET / HTTP/1.1\r\nHost: 192.168.2.1:8000\r\n\r\n";
+    char sbuffer[] = "GET / HTTP/1.1\r\nHost: api.plantus.xyz\r\n\r\n";
     int scount = socket.send(sbuffer, sizeof sbuffer);
-    pc.printf("sent %d [%.*s]\r\n%s\r\n", scount, strstr(sbuffer, "\r\n")-sbuffer, sbuffer, sbuffer);
+    printf("sent %d [%.*s]\r\n", scount, strstr(sbuffer, "\r\n")-sbuffer, sbuffer);
 
     // Recieve a simple http response and print out the response line
     char rbuffer[1024];
     int rcount = socket.recv(rbuffer, sizeof rbuffer);
-    pc.printf("recv %d [%.*s]\r\n%s\r\n", rcount, strstr(rbuffer, "\r\n")-rbuffer, rbuffer, rbuffer);
+    printf("recv %d [%.*s]\r\n%s\r\n", rcount, strstr(rbuffer, "\r\n")-rbuffer, rbuffer, rbuffer);
 
     // Close the socket to return its memory and bring down the network interface
     socket.close();
@@ -246,7 +246,6 @@ void httpGet() {
 }
 
 int main() {
-    pc.baud(9600);
     DEBUG_PRINTXNL(DEBUG, "Station node started");
     httpGet();
     // SetLedTo(0, true); // Init LED on
