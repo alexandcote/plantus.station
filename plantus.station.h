@@ -2,10 +2,11 @@
 #include "LPC17xx.h"
 #include "ConfigFile.h"
 #include "XBeeLib.h"
+#include "EthernetInterface.h"
 
 using namespace XBeeLib;
 
-#define DEBUG false
+#define DEBUG true
 #define MAC_ADR_LENGTH 6
 
 // used for XBee
@@ -31,6 +32,7 @@ extern Serial pc;
 extern DigitalOut LEDs[4];
 extern LocalFileSystem local;
 extern ConfigFile cfg;
+extern EthernetInterface net;
 
 // global variables
 RemoteXBeeZB remoteNodesInNetwork[MAX_NODES];
@@ -53,3 +55,4 @@ void DiscoverNodeById(char *nodeId);
 void DiscoverAllNodes(void);
 void ChangeRemoteWaterPumpStateById(char *nodeId, bool state);
 void ChangeRemoteWaterPumpBy64BitAdr(uint64_t remote64BitsAdr, bool state);
+void httpGet();

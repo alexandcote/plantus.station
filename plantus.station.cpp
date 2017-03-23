@@ -17,6 +17,7 @@ LocalFileSystem local("local");
 EventQueue eventQueue(32 * EVENTS_EVENT_SIZE); // holds 32 events
 Thread eventQueueThread;
 XBeeZB xBee = XBeeZB(p13, p14, p8, NC, NC, XBEE_BAUD_RATE);
+EthernetInterface net;
 
 void SetLedTo(uint16_t led, bool state) {
     LEDs[led] = state;
@@ -214,16 +215,48 @@ void StartEventQueueThread(void) {
     DEBUG_PRINTXNL(DEBUG, "Event thread queue started sucessfully.");
 }
 
+void httpGet() {
+    net.connect();
+    DEBUG_PRINTXNL(DEBUG, "Connected");
+
+    // Show the network address
+    const char *ip = net.get_ip_address();
+    DEBUG_PRINTXYNL(DEBUG, "IP address is: %s", ip ? ip : "No IP");
+
+    // Open a socket on the network interface, and create a TCP connection to mbed.org
+    TCPSocket socket;
+    socket.open(&net);
+    socket.connect("192.168.2.1", 8000);
+
+    // Send a simple http request
+    char sbuffer[] = "GET / HTTP/1.1\r\nHost: 192.168.2.1:8000\r\n\r\n";
+    int scount = socket.send(sbuffer, sizeof sbuffer);
+    pc.printf("sent %d [%.*s]\r\n%s\r\n", scount, strstr(sbuffer, "\r\n")-sbuffer, sbuffer, sbuffer);
+
+    // Recieve a simple http response and print out the response line
+    char rbuffer[1024];
+    int rcount = socket.recv(rbuffer, sizeof rbuffer);
+    pc.printf("recv %d [%.*s]\r\n%s\r\n", rcount, strstr(rbuffer, "\r\n")-rbuffer, rbuffer, rbuffer);
+
+    // Close the socket to return its memory and bring down the network interface
+    socket.close();
+
+    // Bring down the ethernet interface
+    net.disconnect();
+}
+
 int main() {
+    pc.baud(9600);
     DEBUG_PRINTXNL(DEBUG, "Station node started");
-    SetLedTo(0, true); // Init LED on
+    httpGet();
+    // SetLedTo(0, true); // Init LED on
 
-    GetMacAddress(macAdr);
-    ReadConfigFile(&panID);
-    SetupXBee(panID);
+    // GetMacAddress(macAdr);
+    // ReadConfigFile(&panID);
+    // SetupXBee(panID);
 
-    StartEventQueueThread();
-    SetLedTo(0, false); // Init LED off
+    // StartEventQueueThread();
+    // SetLedTo(0, false); // Init LED off
     while (true) {
         Thread::wait(osWaitForever);
     }
