@@ -3,6 +3,7 @@
 #include "ConfigFile.h"
 #include "XBeeLib.h"
 #include "EthernetInterface.h"
+#include "api.h"
 
 using namespace XBeeLib;
 

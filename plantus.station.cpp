@@ -14,8 +14,8 @@ DigitalOut LEDs[4] = {
 };
 ConfigFile cfg;
 LocalFileSystem local("local");
-EventQueue eventQueue(32 * EVENTS_EVENT_SIZE); // holds 32 events
-Thread eventQueueThread;
+// EventQueue eventQueue(32 * EVENTS_EVENT_SIZE); // holds 32 events
+// Thread eventQueueThread;
 XBeeZB xBee = XBeeZB(p13, p14, p8, NC, NC, XBEE_BAUD_RATE);
 EthernetInterface net;
 
@@ -206,56 +206,48 @@ void CheckIfNewFrameIsPresent(void) {
 void StartEventQueueThread(void) {
     DEBUG_PRINTXNL(DEBUG, "Starting event queue thread");
 
-    eventQueue.call_every(1000, FlashLed, 3);  // just so we can see the event queue still runs
-    eventQueue.call_every(100, CheckIfNewFrameIsPresent);
-    eventQueue.call_every(5000, ChangeRemoteWaterPumpStateById, (char*)POT_1, true);
-    eventQueue.call_every(2000, ChangeRemoteWaterPumpBy64BitAdr, 0x0013A20040331988, true); // hardcoded 64 adr value for now
-    eventQueueThread.start(callback(&eventQueue, &EventQueue::dispatch_forever));
+    // eventQueue.call_every(1000, FlashLed, 3);  // just so we can see the event queue still runs
+    // eventQueue.call_every(100, CheckIfNewFrameIsPresent);
+    // eventQueue.call_every(5000, ChangeRemoteWaterPumpStateById, (char*)POT_1, true);
+    // eventQueue.call_every(2000, ChangeRemoteWaterPumpBy64BitAdr, 0x0013A20040331988, true); // hardcoded 64 adr value for now
+    // eventQueueThread.start(callback(&eventQueue, &EventQueue::dispatch_forever));
 
     DEBUG_PRINTXNL(DEBUG, "Event thread queue started sucessfully.");
 }
 
-void httpGet() {
+void SetupEthernet() {
+    net.init();
     net.connect();
-    DEBUG_PRINTXNL(DEBUG, "Connected");
-
-    // Show the network address
-    const char *ip = net.get_ip_address();
+    const char *ip = net.getIPAddress();
     DEBUG_PRINTXY(DEBUG, "IP address is: %s", ip ? ip : "No IP");
+}
 
-    // Open a socket on the network interface, and create a TCP connection to mbed.org
-    TCPSocket socket;
-    socket.open(&net);
-    socket.connect("api.plantus.xyz", 80);
-
-    // Send a simple http request
-    char sbuffer[] = "GET / HTTP/1.1\r\nHost: api.plantus.xyz\r\n\r\n";
-    int scount = socket.send(sbuffer, sizeof sbuffer);
-    printf("sent %d [%.*s]\r\n", scount, strstr(sbuffer, "\r\n")-sbuffer, sbuffer);
-
-    // Recieve a simple http response and print out the response line
-    char rbuffer[1024];
-    int rcount = socket.recv(rbuffer, sizeof rbuffer);
-    printf("recv %d [%.*s]\r\n%s\r\n", rcount, strstr(rbuffer, "\r\n")-rbuffer, rbuffer, rbuffer);
-
-    // Close the socket to return its memory and bring down the network interface
-    socket.close();
-
-    // Bring down the ethernet interface
-    net.disconnect();
+void TestHTTPGET() {
+    yajl_val node = api::get("");
+    const char * path[] = { "places" };
+    yajl_val v = yajl_tree_get(node, path, yajl_t_string);
+    if (v) {
+        printf("%s: %s\r\n", path[0], YAJL_GET_STRING(v));
+    } else {
+        printf("no such node: %s\r\n", path[0]);
+    }
+    yajl_tree_free(node);
 }
 
 int main() {
     DEBUG_PRINTXNL(DEBUG, "Station node started");
-    httpGet();
-    // SetLedTo(0, true); // Init LED on
+    SetLedTo(0, true); // Init LED on
 
-    // GetMacAddress(macAdr);
-    // ReadConfigFile(&panID);
+    GetMacAddress(macAdr);
+    ReadConfigFile(&panID);
+    SetupEthernet();
     // SetupXBee(panID);
 
-    // StartEventQueueThread();
-    // SetLedTo(0, false); // Init LED off
+    StartEventQueueThread();
+    SetLedTo(0, false); // Init LED off
+
+    TestHTTPGET();
+
     while (true) {
         Thread::wait(osWaitForever);
     }

@@ -1,6 +1,3 @@
-.build
-.mbed
-projectfiles
-BUILD
-*.py*
-mbed-os
+.temp
+mbed
+mbed-rtos
