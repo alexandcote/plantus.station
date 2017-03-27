@@ -13,6 +13,7 @@ using namespace XBeeLib;
 // used for XBee
 #define XBEE_BAUD_RATE 115200
 #define NODE_IDENTIFIER_MAX_LENGTH 21
+#define PLACE_IDENTIFIER_LENGTH 36
 #define MAX_NODES 5
 #define NODE_DISCOVERY_TIMEOUT_MS   5000
 #define TURN_WATER_PUMP_ON 0xBB
@@ -27,6 +28,7 @@ using namespace XBeeLib;
 #define CFG_PATH "/local/config.cfg"
 #define CFG_KEY_PAN_ID "PAN_ID"
 #define CFG_KEY_NODE_IDENTIFIER "NODE_IDENTIFIER"
+#define CFG_KEY_PLACE_IDENTIFIER "PLACE_IDENTIFIER"
 
 // peripherals
 extern Serial pc;
@@ -38,6 +40,7 @@ extern EthernetInterface net;
 // global variables
 RemoteXBeeZB remoteNodesInNetwork[MAX_NODES];
 char nodeIdentifier[NODE_IDENTIFIER_MAX_LENGTH];
+char placeIdentifier[PLACE_IDENTIFIER_LENGTH];
 char macAdr[MAC_ADR_LENGTH];
 uint16_t panID; 
 uint8_t remoteNodesCount = 0;
@@ -56,4 +59,3 @@ void DiscoverNodeById(char *nodeId);
 void DiscoverAllNodes(void);
 void ChangeRemoteWaterPumpStateById(char *nodeId, bool state);
 void ChangeRemoteWaterPumpBy64BitAdr(uint64_t remote64BitsAdr, bool state);
-void httpGet();

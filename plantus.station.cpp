@@ -51,6 +51,13 @@ void ReadConfigFile(uint16_t *panID) {
     cfg.getValue(CFG_KEY_NODE_IDENTIFIER, configurationValue, BUFSIZ);
     int i = 0;
     while(configurationValue[i] != '\0') {
+        placeIdentifier[i] = configurationValue[i];
+        i++;
+    }
+    DEBUG_PRINTXYNL(DEBUG, "Place identifier: '%s'", placeIdentifier);
+
+    cfg.getValue(CFG_KEY_NODE_IDENTIFIER, configurationValue, BUFSIZ);
+    while(configurationValue[i] != '\0') {
         nodeIdentifier[i] = configurationValue[i];
         i++;
     }
@@ -219,19 +226,41 @@ void SetupEthernet() {
     net.init();
     net.connect();
     const char *ip = net.getIPAddress();
-    DEBUG_PRINTXY(DEBUG, "IP address is: %s", ip ? ip : "No IP");
+    DEBUG_PRINTXY(DEBUG, "IP address is: %s\r\n", ip ? ip : "No IP");
+}
+
+void ParseOperations(const yajl_val &node) {
+    const char * path[] = { "results", (const char *) 0 };
+    yajl_val results = yajl_tree_get( node, path, yajl_t_array );
+    if ( results && YAJL_IS_ARRAY(results) ) {
+        size_t len = results->u.array.len;
+        for (int i = 0; i < len; ++i ) {
+            const char * actionPath[] = { "action", (const char *) 0 };
+            yajl_val action = yajl_tree_get(results->u.array.values[i], actionPath, yajl_t_string);
+
+            const char * identifierPath[] = { "pot_identifier", (const char *) 0 };
+            yajl_val pot_identifier = yajl_tree_get(results->u.array.values[i], identifierPath, yajl_t_string);
+            if (action && pot_identifier) {
+                // Here we have an action and a pot_identifier
+                DEBUG_PRINTXYZ(DEBUG, "pot_identifer: %s\taction: %s\r\n", YAJL_GET_STRING(pot_identifier), YAJL_GET_STRING(action));
+            } else {
+                DEBUG_PRINTX(DEBUG, "no action or pot_identifier\r\n");
+            }
+        }
+    } else { 
+        DEBUG_PRINTX(DEBUG, "No actions to do\r\n" ); 
+    }
+
+    yajl_tree_free(node);
+}
+
+void TestHTTPPost() {
+    char* body = "{\"temperature\":\"10.00\",\"humidity\":\"10.00\",\"luminosity\":\"10.00\",\"water_level\":\"10.00\",\"pot_identifier\":\"7ee45d53-df2a-40e8-a2b3-c32ca07348c0\"}";
+    api::post("timeseries/", body, placeIdentifier);
 }
 
 void TestHTTPGET() {
-    yajl_val node = api::get("");
-    const char * path[] = { "places" };
-    yajl_val v = yajl_tree_get(node, path, yajl_t_string);
-    if (v) {
-        printf("%s: %s\r\n", path[0], YAJL_GET_STRING(v));
-    } else {
-        printf("no such node: %s\r\n", path[0]);
-    }
-    yajl_tree_free(node);
+    yajl_val node = api::get("operations/", placeIdentifier);
 }
 
 int main() {
@@ -247,6 +276,7 @@ int main() {
     SetLedTo(0, false); // Init LED off
 
     TestHTTPGET();
+    TestHTTPPost();
 
     while (true) {
         Thread::wait(osWaitForever);
