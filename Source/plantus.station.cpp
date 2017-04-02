@@ -1,4 +1,5 @@
 #include "plantus.station.h"
+
 // For debug
 Serial pc(USBTX, USBRX);   // tx, rx
 #define DEBUG_PRINTX(DEBUG, x) if(DEBUG) {pc.printf(x);}
@@ -14,8 +15,9 @@ DigitalOut LEDs[4] = {
 };
 ConfigFile cfg;
 LocalFileSystem local("local");
-// EventQueue eventQueue(32 * EVENTS_EVENT_SIZE); // holds 32 events
-// Thread eventQueueThread;
+
+//Thread zigBeeThread;
+api::Operation* operations = new api::Operation[api::maxOperationsLength];
 XBeeZB xBee = XBeeZB(p13, p14, p8, NC, NC, XBEE_BAUD_RATE);
 EthernetInterface net;
 
@@ -23,9 +25,17 @@ void SetLedTo(uint16_t led, bool state) {
     LEDs[led] = state;
 }
 
-void FlashLed(uint16_t led) {
-    LEDs[led] = !LEDs[led];
+void FlashLed(void const *led) {
+    LEDs[(int)led] = !LEDs[(int)led];
 }
+
+void FlashLed3() {
+    while(true){
+        LEDs[3] = !LEDs[3];
+        Thread::wait(2000);
+    }
+}
+
 
 void GetMacAddress(char *macAdr) {
     mbed_mac_address(macAdr);
@@ -39,8 +49,8 @@ void GetMacAddress(char *macAdr) {
 }
 
 void ReadConfigFile(uint16_t *panID) {
-    DEBUG_PRINTXNL(DEBUG, "\r\nreading configuration file...");
-
+    DEBUG_PRINTXNL(DEBUG, "\r\nReading configuration file...");
+    int i = 0;
     char configurationValue[BUFSIZ];
     cfg.read(CFG_PATH);
 
@@ -48,22 +58,24 @@ void ReadConfigFile(uint16_t *panID) {
     *panID = strtol(configurationValue, NULL, HEXA_BASE);
     DEBUG_PRINTXYNL(DEBUG, "Pan ID: '0x%X'", *panID);
 
-    cfg.getValue(CFG_KEY_NODE_IDENTIFIER, configurationValue, BUFSIZ);
-    int i = 0;
+    cfg.getValue(CFG_KEY_PLACE_IDENTIFIER, configurationValue, BUFSIZ);
+    
     while(configurationValue[i] != '\0') {
         placeIdentifier[i] = configurationValue[i];
         i++;
     }
+    i = 0;
     DEBUG_PRINTXYNL(DEBUG, "Place identifier: '%s'", placeIdentifier);
 
     cfg.getValue(CFG_KEY_NODE_IDENTIFIER, configurationValue, BUFSIZ);
+
     while(configurationValue[i] != '\0') {
         nodeIdentifier[i] = configurationValue[i];
         i++;
     }
-    DEBUG_PRINTXYNL(DEBUG, "node Identifier: '%s'", nodeIdentifier);
+    DEBUG_PRINTXYNL(DEBUG, "node identifier: '%s'", nodeIdentifier);
 
-    DEBUG_PRINTXNL(DEBUG, "Reading configuration file finished.\r\n");
+    DEBUG_PRINTXNL(DEBUG, "Reading configuration file finished successfully!!\r\n");
 }
 
 void SetupXBee(uint16_t panID) {
@@ -78,6 +90,7 @@ void SetupXBee(uint16_t panID) {
     uint32_t lowAdr = Adr64Bits;
     DEBUG_PRINTXYZNL(DEBUG, "Primary initialization successful, device 64bit Adress = '0x%X%X'", highAdr, lowAdr);
 
+    // maybe no need anymore with node_ID
     radioStatus = xBee.set_panid(panID);
     MBED_ASSERT(radioStatus == Success);
     DEBUG_PRINTXYNL(DEBUG, "Device PanID was set to '0x%X'", panID);
@@ -91,7 +104,7 @@ void SetupXBee(uint16_t panID) {
         wait_ms(1000);
         DEBUG_PRINTX(DEBUG, ".");
     }
-    DEBUG_PRINTXYNL(DEBUG, "\r\ndevice created network with panID '0x%X' successfully!\r\n", panID);
+    DEBUG_PRINTXYNL(DEBUG, "\r\ndevice created network with panID '0x%X' successfully!", panID);
 
     /* Maybe drop this config if we dont use discovery feature...
     xBee.register_node_discovery_cb(&discovery_function);
@@ -101,6 +114,7 @@ void SetupXBee(uint16_t panID) {
     */
 
     DEBUG_PRINTXNL(DEBUG, "XBee initialization finished successfully!");
+    DEBUG_PRINTXNL(DEBUG, "\n\r");
 }
 
 void NewFrameReceivedHandler(const RemoteXBeeZB& remoteNode, bool broadcast, const uint8_t *const data, uint16_t len)
@@ -122,60 +136,15 @@ void NewFrameReceivedHandler(const RemoteXBeeZB& remoteNode, bool broadcast, con
     DEBUG_PRINTXNL(DEBUG, "\r\n");
 }
 
-// Not sure if it works fully, need more testing, maybe more XBees in the network?
-void discovery_function(const RemoteXBeeZB& remoteNode, char const * const node_id)
-{
-    const uint64_t remote64Adress = remoteNode.get_addr64();
-    DEBUG_PRINTXYNL(DEBUG, "HEY, I HAVE FOUND A DEVICE! node ID = '%s'", node_id);
-    DEBUG_PRINTXYZNL(DEBUG, "16 bit remote address is: '0x%X' and it is '%s'", remoteNode.get_addr16(), remoteNode.is_valid_addr16b() ? "valid" : "invalid");
-    DEBUG_PRINTXYZ(DEBUG, "64 bit address is:  High = '0x%X' Low = '0x%X'", UINT64_HI32(remote64Adress), UINT64_LO32(remote64Adress));
-    DEBUG_PRINTXYNL(DEBUG, "and it is '%s'", remoteNode.is_valid_addr64b() ? "valid" : "invalid");
-
-    if (remoteNodesCount < MAX_NODES) {
-        remoteNodesInNetwork[remoteNodesCount] = remoteNode;
-        remoteNodesCount++;
-    } else {
-        DEBUG_PRINTXYNL(DEBUG, "Found more nodes than maximum configured, max is '%i'", MAX_NODES);
-    } 
-}
-
-// Not sure if it works fully, need more testing, maybe more XBees in the network?
-void DiscoverAllNodes(void) {
-    DEBUG_PRINTX(DEBUG, "Discovering all nodes process started");
-    xBee.start_node_discovery();
-    do {
-        xBee.process_rx_frames();
-        wait_ms(10);
-        DEBUG_PRINTX(DEBUG, ".");
-    } while(xBee.is_node_discovery_in_progress());
-    DEBUG_PRINTXNL(DEBUG, "Discovering all nodes process finished!");
-}
-
-// Works but not sure if will use...
-void DiscoverNodeById(char *nodeId) {
-    DEBUG_PRINTXYNL(DEBUG, "Discovering by Id process started, trying to find node Id '%s'", nodeId);
-    RemoteXBeeZB remoteNode = xBee.get_remote_node_by_id(nodeId);
-
-    if(remoteNode.is_valid()) {
-        const uint64_t remote64Adress = remoteNode.get_addr64();
-        DEBUG_PRINTXYNL(DEBUG, "Found '%s'!", nodeId);
-        DEBUG_PRINTXYZNL(DEBUG, "16 bits remote address is: '0x%X' and it is '%s'", remoteNode.get_addr16(), remoteNode.is_valid_addr16b() ? "valid" : "invalid");
-        DEBUG_PRINTXYZ(DEBUG, "64 bits address is:  High = '0x%X' Low = '0x%X'", UINT64_HI32(remote64Adress), UINT64_LO32(remote64Adress));
-        DEBUG_PRINTXYNL(DEBUG, "and it is '%s'", remoteNode.is_valid_addr64b() ? "valid" : "invalid");
-    } else {
-        DEBUG_PRINTXYNL(DEBUG, "Did not find device with node Id '%s'", nodeId);
-    }
-    DEBUG_PRINTXNL(DEBUG, "Discovering by Id process finished!\r\n");
-}
-
 void ChangeRemoteWaterPumpStateById(char *nodeId, bool state) {
     DEBUG_PRINTXYZNL(DEBUG, "\r\nPutting node '%s' water pump state to '%s'", nodeId, state ? "True" : "False");
 
     RemoteXBeeZB remoteNode = xBee.get_remote_node_by_id(nodeId);
     if(remoteNode.is_valid()) {
+        /*
         uint64_t remote64 = remoteNode.get_addr64();
         uint32_t highAdr = remote64 >> 32;
-        uint32_t lowAdr = remote64;
+        uint32_t lowAdr = remote64;*/
         char message[] = {ALTERNATE_WATER_PUMP_STATE};
         TxStatus txStatus = xBee.send_data(remoteNode, (const uint8_t *)message, 1);
         if (txStatus == TxStatusSuccess) {
@@ -210,73 +179,58 @@ void CheckIfNewFrameIsPresent(void) {
     xBee.process_rx_frames();
 }
 
-void StartEventQueueThread(void) {
-    DEBUG_PRINTXNL(DEBUG, "Starting event queue thread");
-
-    // eventQueue.call_every(1000, FlashLed, 3);  // just so we can see the event queue still runs
-    // eventQueue.call_every(100, CheckIfNewFrameIsPresent);
-    // eventQueue.call_every(5000, ChangeRemoteWaterPumpStateById, (char*)POT_1, true);
-    // eventQueue.call_every(2000, ChangeRemoteWaterPumpBy64BitAdr, 0x0013A20040331988, true); // hardcoded 64 adr value for now
-    // eventQueueThread.start(callback(&eventQueue, &EventQueue::dispatch_forever));
-
-    DEBUG_PRINTXNL(DEBUG, "Event thread queue started sucessfully.");
-}
-
 void SetupEthernet() {
+    DEBUG_PRINTXNL(DEBUG, "\r\nSetting up Ethernet...");
     net.init();
     net.connect();
     const char *ip = net.getIPAddress();
     DEBUG_PRINTXY(DEBUG, "IP address is: %s\r\n", ip ? ip : "No IP");
-}
-
-void ParseOperations(const yajl_val &node) {
-    const char * path[] = { "results", (const char *) 0 };
-    yajl_val results = yajl_tree_get( node, path, yajl_t_array );
-    if ( results && YAJL_IS_ARRAY(results) ) {
-        size_t len = results->u.array.len;
-        for (int i = 0; i < len; ++i ) {
-            const char * actionPath[] = { "action", (const char *) 0 };
-            yajl_val action = yajl_tree_get(results->u.array.values[i], actionPath, yajl_t_string);
-
-            const char * identifierPath[] = { "pot_identifier", (const char *) 0 };
-            yajl_val pot_identifier = yajl_tree_get(results->u.array.values[i], identifierPath, yajl_t_string);
-            if (action && pot_identifier) {
-                // Here we have an action and a pot_identifier
-                DEBUG_PRINTXYZ(DEBUG, "pot_identifer: %s\taction: %s\r\n", YAJL_GET_STRING(pot_identifier), YAJL_GET_STRING(action));
-            } else {
-                DEBUG_PRINTX(DEBUG, "no action or pot_identifier\r\n");
-            }
-        }
-    } else { 
-        DEBUG_PRINTX(DEBUG, "No actions to do\r\n" ); 
-    }
-
-    yajl_tree_free(node);
+    DEBUG_PRINTXNL(DEBUG, "Ethernet setup finished successfully!\r\n");
 }
 
 void TestHTTPPost() {
     char* body = "{\"temperature\":\"10.00\",\"humidity\":\"10.00\",\"luminosity\":\"10.00\",\"water_level\":\"10.00\",\"pot_identifier\":\"7ee45d53-df2a-40e8-a2b3-c32ca07348c0\"}";
-    api::post("timeseries/", body, placeIdentifier);
+    // use HTTP map?
+    //api::post("timeseries/", body, placeIdentifier);
 }
 
-void TestHTTPGET() {
-    yajl_val node = api::get("operations/", placeIdentifier);
+void GetOperations() {
+    DEBUG_PRINTXNL(DEBUG, "Get operations thread started.");
+    while(true) {
+        char HTTPresponse[HTTP_RESPONSE_LENGTH];
+        api::get("operations/?completed=0", placeIdentifier, operations);
+        //DEBUG_PRINTXNL(DEBUG, "Get Finished");
+        //DEBUG_PRINTXYNL(DEBUG, "Get operations response is %s", HTTPresponse);
+        operationsParser();
+        Thread::wait(5000);
+    }
+}
+
+void operationsParser() {
+    for(int i = 0; i < api::maxOperationsLength; i++) {
+        if(!strcmp(operations[i].id, "") == 0) {
+            DEBUG_PRINTXYNL(DEBUG, "sending operation %d...", i);
+            // send to XBee with ID
+        }
+    }
 }
 
 int main() {
     DEBUG_PRINTXNL(DEBUG, "Station node started");
     SetLedTo(0, true); // Init LED on
 
-    GetMacAddress(macAdr);
     ReadConfigFile(&panID);
     SetupEthernet();
-    // SetupXBee(panID);
+    //SetupXBee(panID);
+    //flashItTimer.start(1000);
 
-    StartEventQueueThread();
     SetLedTo(0, false); // Init LED off
+    Thread getOperationsThread(GetOperations, osPriorityNormal, 5096);
+    Thread flashLed3Thread;
+    flashLed3Thread.start(FlashLed3);
+    getOperationsThread.start(GetOperations);
 
-    TestHTTPGET();
-    TestHTTPPost();
+    //TestHTTPPost();
 
     while (true) {
         Thread::wait(osWaitForever);

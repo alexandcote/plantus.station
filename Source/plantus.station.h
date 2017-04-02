@@ -1,19 +1,28 @@
 #include "mbed.h"
 #include "LPC17xx.h"
+#include "rtos.h"
 #include "ConfigFile.h"
 #include "XBeeLib.h"
 #include "EthernetInterface.h"
 #include "api.h"
+#include "Json.h"
 
 using namespace XBeeLib;
 
 #define DEBUG true
 #define MAC_ADR_LENGTH 6
 
+
+// used for HTTP
+#define HTTP_RESPONSE_LENGTH 1024
+#define PLACE_IDENTIFIER_LENGTH 37
+#define POT_IDENTIFIER_LENGTH 37
+#define OPERATION_ID_LENGTH 4
+#define OPERATIONS_MAX_LENTH 3
+
 // used for XBee
 #define XBEE_BAUD_RATE 115200
 #define NODE_IDENTIFIER_MAX_LENGTH 21
-#define PLACE_IDENTIFIER_LENGTH 36
 #define MAX_NODES 5
 #define NODE_DISCOVERY_TIMEOUT_MS   5000
 #define TURN_WATER_PUMP_ON 0xBB
@@ -47,15 +56,11 @@ uint8_t remoteNodesCount = 0;
 
 // prototypes
 void ReadConfigFile(uint16_t *panID);
-void GetMacAddress(char *macAdr);
 void SetLedTo(uint16_t led, bool state);
-void FlashLed(uint16_t led);
-void StartEventQueueThread(void);
+void FlashLed(void const *led);
 void SetupXBee(XBeeZB *xBee, uint16_t panID);
 void CheckIfNewFrameIsPresent(void);
 void NewFrameReceivedHandler(const RemoteXBeeZB& remoteNode, bool broadcast, const uint8_t *const data, uint16_t len);
-void discovery_function(const RemoteXBeeZB& remoteNode, char const * const node_id);
-void DiscoverNodeById(char *nodeId);
-void DiscoverAllNodes(void);
 void ChangeRemoteWaterPumpStateById(char *nodeId, bool state);
 void ChangeRemoteWaterPumpBy64BitAdr(uint64_t remote64BitsAdr, bool state);
+void operationsParser();
