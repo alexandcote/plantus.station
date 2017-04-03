@@ -2,14 +2,21 @@
 #include "Json.h"
 
 namespace api {
+  #define DEBUG_PRINTXNL(DEBUG, x) if(DEBUG) {pc.printf(x);               pc.printf("\r\n");}
+  #define INFO_PRINTXNL(DEBUG, x) if(INFO) {pc.printf(x);               pc.printf("\r\n");}
   #define BUFFER_SIZE 1024
+  #define OPERATION_ID_MAX_LENGTH 4
+  #define POT_IDENTIFIER_LENGTH 37
+  #define OPERATIONS_MAX_LENTH 3
+  #define ACTION_MAX_LENGTH 30
 
   struct Operation{
-    char id[3];
-    char potIdentifer[37];
+    char id[OPERATION_ID_MAX_LENGTH];
+    char action[ACTION_MAX_LENGTH];
+    char potIdentifer[POT_IDENTIFIER_LENGTH];
   };
 
-  const int maxOperationsLength = 3;
+  const int maxOperationsLength = OPERATIONS_MAX_LENTH;
   const char* BASE = "http://api.plantus.xyz/";
   char buffer[BUFFER_SIZE];
 
@@ -51,11 +58,12 @@ namespace api {
         if (resultsValueIndex > 0)
         {
           // we create sub jsons for the max number of suported operations
-          for(int i = 0; i < maxOperationsLength; i++) { // use define here
+          for(int i = 0; i < maxOperationsLength; i++) { 
+            // initialize values
             strncpy(operations[i].id, "\0", 1);
             strncpy(operations[i].potIdentifer, "\0", 1);
+            strncpy(operations[i].action, "\0", 1);
             childIndex = json.findChildIndexOf (resultsValueIndex, childIndexOffset);
-            //printf("childIndex %d\r\n", childIndex);
             
             if(childIndex > 0) {
               childIndexOffset = childIndex;
@@ -65,7 +73,6 @@ namespace api {
 
               strncpy(operationBuffer, valueStart, valueLength);
               operationBuffer [ valueLength ] = 0; // NULL-terminate the string
-              //printf("operationBuffer is %s\r\n", operationBuffer);
               Json operationJson(operationBuffer, strlen(operationBuffer));
               if (!operationJson.isValidJson() || operationJson.type(0) != JSMN_OBJECT)
               {
@@ -109,6 +116,25 @@ namespace api {
                       printf("Operation ID for operation %d is %s\r\n", i, operations[i].id);
                   }
               }
+              int actionKeyIndex = operationJson.findKeyIndexIn("action", 0);
+              if (operationIdKeyIndex == -1)
+              {
+                  printf("\"action\" does not exist in the HTTP response");
+                  return;
+              }  else {
+                  int actionValueIndex = operationJson.findChildIndexOf(actionKeyIndex);
+                  if (actionValueIndex > 0)
+                  {
+                      // we have a action!
+                      const char * valueStart  = operationJson.tokenAddress (actionValueIndex);
+                      int          valueLength = operationJson.tokenLength  (actionValueIndex);
+                                    
+                      strncpy(operations[i].action, valueStart, valueLength); 
+                      operations[i].action[valueLength] = 0; // NULL-terminate the string*/
+                      printf("Operation action for operation %d is %s\r\n", i, operations[i].action);
+                  }
+              }
+
             }
           }
         }
@@ -123,7 +149,7 @@ namespace api {
     * @param [identifier] place identifier
     * @return JSON root node
   */
-  
+  // TODO change body for http map https://developer.mbed.org/teams/Avnet/code/WNCInterface_HTTP_example/docs/tip/main_8cpp_source.html?
   void post(const char* path, char* body, const char* identifier) {
     HTTPClient api(identifier);
     char uri[100];
