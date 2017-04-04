@@ -32,10 +32,10 @@ using namespace XBeeLib;
 
 // theses defines must be the same as in the pot project...
 #define LUMINOSITY_DATA_LENGTH 2
-#define AMBIANT_TEMPERATURE_DATA_LENGTH 1
+#define TEMPERATURE_DATA_LENGTH 6
 #define SOIL_HUMIDITY_DATA_LENGTH 1
 #define WATER_LEVEL_DATA_LENGTH 1
-#define FRAME_DATA_LENGTH FRAME_PREFIX_LENGTH + LUMINOSITY_DATA_LENGTH + AMBIANT_TEMPERATURE_DATA_LENGTH + SOIL_HUMIDITY_DATA_LENGTH + WATER_LEVEL_DATA_LENGTH 
+#define FRAME_DATA_LENGTH FRAME_PREFIX_LENGTH + LUMINOSITY_DATA_LENGTH + TEMPERATURE_DATA_LENGTH + SOIL_HUMIDITY_DATA_LENGTH + WATER_LEVEL_DATA_LENGTH 
 
 // used for configuration file
 #define HEXA_BASE 16
@@ -59,15 +59,21 @@ const char* actionWater = "water";
 uint16_t panID; 
 
 // prototypes
+
 void ReadConfigFile(uint16_t *panID);
+void SetupXBee(XBeeZB *xBee, uint16_t panID);
+void NewFrameReceivedHandler(const RemoteXBeeZB& remoteNode, bool broadcast, const uint8_t *const data, uint16_t len);
+std::map<std::string, uint64_t>::iterator serachByValue(std::map<std::string, uint64_t> &xbeeToPotMap, uint64_t val);
+void AddPotIdentifierToMap(const char potIdentifier[], const uint64_t remote64Adress);
+void SendFrameToRemote64BitsAdr(uint64_t remote64BitsAdr, char frame[], uint16_t frameLength);
+void PrepareFrameToSend(char frame[], char data[], int framePrefix);
+void CheckIfNewFrameIsPresent(void);
+void SetupEthernet(void);
+void GetOperations(void);
+void PostCompletedOperation(const char operationId[]);
+int GetPotIdentiferWithRemote64Address(char potIdentifier[], const uint64_t remote64Adress);
+void PostTimeSeriesData(const char data[], const uint64_t remote64Adress);
+void OperationsParser(void);
 void SetLedTo(uint16_t led, bool state);
 void FlashLed(void const *led);
-void SetupXBee(XBeeZB *xBee, uint16_t panID);
-void CheckIfNewFrameIsPresent(void);
-void NewFrameReceivedHandler(const RemoteXBeeZB& remoteNode, bool broadcast, const uint8_t *const data, uint16_t len);
-void SendFrameToRemote64BitsAdr(uint64_t remote64BitsAdr, char frame[], uint16_t frameLength);
-void OperationsParser();
-void AddPotIdentifierToMap(const char potIdentifier[], const uint64_t remote64Adress);
-void PostCompletedOperation(const char operationId[]);
-void PostTimeSeriesData(const char data[], const uint64_t remote64Adress);
-std::map<std::string, uint64_t>::iterator serachByValue(std::map<std::string, uint64_t> &xbeeToPotMap, uint64_t val);
+void GetMacAddress(char *macAdr);
