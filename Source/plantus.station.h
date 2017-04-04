@@ -18,6 +18,7 @@ using namespace XBeeLib;
 // used for HTTP
 #define HTTP_RESPONSE_LENGTH 1024
 #define PLACE_IDENTIFIER_LENGTH 37
+#define ACTION_WATER "water"
 
 // used for XBee
 #define XBEE_BAUD_RATE 115200
@@ -54,6 +55,7 @@ char placeIdentifier[PLACE_IDENTIFIER_LENGTH];
 char macAdr[MAC_ADR_LENGTH];
 const char* operationsPath = "operations/";
 const char* operationCompleted = "/completed/";
+const char* actionWater = "water";
 uint16_t panID; 
 
 // prototypes

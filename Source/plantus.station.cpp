@@ -205,7 +205,7 @@ void GetOperations() {
         char HTTPresponse[HTTP_RESPONSE_LENGTH];
         api::get("operations/?completed=0", placeIdentifier, operations);
         OperationsParser();
-        Thread::wait(5000);
+        Thread::wait(10000);
     }
 }
 
@@ -268,13 +268,13 @@ void PostTimeSeriesData(const char data[], const uint64_t remote64Adress) {
             strcat(body, potIdentifierBody);
 
             INFO_PRINTXYNL(INFO, "body is '%s'", body);
-            */
+            
             DEBUG_PRINTXYNL(INFO, "Posting luminosty high '0x%X'.", luminosity[0]);
             DEBUG_PRINTXYNL(INFO, "Posting luminosty low '0x%X'.", luminosity[1]);
             DEBUG_PRINTXYNL(INFO, "Posting temperature '0x%X'.", ambiantTemperature[0]);
             DEBUG_PRINTXYNL(INFO, "Posting humidity '0x%X'.", soilHumidity[0]);
             DEBUG_PRINTXYNL(INFO, "Posting water_level '0x%X'.", waterLevel[0]);
-
+*/
             /*
             HTTPMap* map;
             map->put("luminosity", luminosity);
@@ -297,10 +297,16 @@ void OperationsParser() {
         // for debug without api only
         strcpy(operations[i].id, "80");
         strcpy(operations[i].potIdentifer, "09bcf78c-5dbb-4348-86f4-17853248c65c");
+        char frameAlternatePumpState[FRAME_PREFIX_LENGTH + OPERATION_ID_MAX_LENGTH];
+        memset(frameAlternatePumpState, 0, sizeof frameAlternatePumpState); // start with fresh values
+        frameAlternatePumpState[0] = FRAME_PREFIX_ALTERNATE_WATER_PUMP_STATE;
+        strcat(frameAlternatePumpState, operations[i].id);               
+        SendFrameToRemote64BitsAdr(remote64BitsAdr, frameAlternatePumpState, strlen(frameAlternatePumpState));
         */
         if(!strcmp(operations[i].id, "") == 0) {
-            DEBUG_PRINTXYZNL(DEBUG, "Operation pot identifier '%s'' with id '%s'", operations[i].potIdentifer, operations[i].id);
-            
+            DEBUG_PRINTXYZ(DEBUG, "Operation pot identifier '%s'' with id '%s'", operations[i].potIdentifer, operations[i].id);
+            DEBUG_PRINTXY(DEBUG, "and action '%s'", operations[i].action);
+
             // is pot known?
             if(xbeeToPotMap.find(operations[i].potIdentifer) != xbeeToPotMap.end()) {
                 uint64_t remote64BitsAdr = xbeeToPotMap.find(operations[i].potIdentifer)->second;
@@ -310,11 +316,18 @@ void OperationsParser() {
                 DEBUG_PRINTXYZNL(DEBUG, "remote64BitsAdr is '0x%X%X'", highAdr, lowAdr);
                 DEBUG_PRINTXNL(DEBUG, "Sending operation to pot");
 
-                char frameAlternatePumpState[FRAME_PREFIX_LENGTH + OPERATION_ID_MAX_LENGTH];
-                memset(frameAlternatePumpState, 0, sizeof frameAlternatePumpState); // start with fresh values
-                frameAlternatePumpState[0] = FRAME_PREFIX_ALTERNATE_WATER_PUMP_STATE;
-                strcat(frameAlternatePumpState, operations[i].id);               
-                SendFrameToRemote64BitsAdr(remote64BitsAdr, frameAlternatePumpState, strlen(frameAlternatePumpState));
+                if( strcmp(operations[i].action, actionWater) == 0 ) {
+                    INFO_PRINTXNL(INFO, "Water action detected, sending to defined pot!");
+                    char frameWaterPlant[FRAME_PREFIX_LENGTH + OPERATION_ID_MAX_LENGTH];
+                    memset(frameWaterPlant, 0, sizeof(frameWaterPlant)); // start with fresh values
+                    frameWaterPlant[0] = FRAME_PREFIX_TURN_WATER_PUMP_ON;
+                    strcat(frameWaterPlant, operations[i].id);               
+                    SendFrameToRemote64BitsAdr(remote64BitsAdr, frameWaterPlant, strlen(frameWaterPlant));
+                } else {
+                    INFO_PRINTXYNL(INFO, "Unknown action '%s' detected, nothing will be done!", operations[i].action);
+                }
+
+
              } else {
                  INFO_PRINTXYNL(INFO, "'%s' was not found in the map, operation will not be sent...", operations[i].potIdentifer);
              }
@@ -322,7 +335,7 @@ void OperationsParser() {
     }
 }
 
-std::map<std::string, uint64_t>::iterator serachByValue(std::map<std::string, uint64_t> &xbeeToPotMap, uint64_t val) 
+std::map<std::string, uint64_t>::iterator serachByValue(std::map<std::string, uint64_t> &xbeeToPotMap, uint64_t val) {
     // Iterate through all elements in std::map and search for the passed element
     std::map<std::string, uint64_t>::iterator it = xbeeToPotMap.begin();
     while(it != xbeeToPotMap.end())
