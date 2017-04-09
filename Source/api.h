@@ -18,6 +18,7 @@ namespace api {
 
   const int maxOperationsLength = OPERATIONS_MAX_LENTH;
   const char* BASE = "http://api.plantus.xyz/";
+  const char* ethernetAdapterIP = "http://192.168.0.1/";
   char buffer[BUFFER_SIZE];
   void getOperationsFromResponse(char response[], Operation operations[maxOperationsLength]);
 
@@ -27,10 +28,14 @@ namespace api {
     * @param [identifier] place identifier
     * @return JSON root node
   */
-  void get(const char* path, const char* identifier, Operation operations[maxOperationsLength], Thread* ptrGetOperationsThread) {
+  void get(const char* path, const char* identifier, Operation operations[maxOperationsLength], Thread* ptrGetOperationsThread, bool staticAddress) {
     HTTPClient api(identifier);
     char uri[100];
-    strcpy(uri, BASE);
+    if(staticAddress) {
+        strcpy(uri, ethernetAdapterIP);
+    } else {  
+        strcpy(uri, BASE);
+    }       
     strcat(uri, path);
     printf("\r\nGET %s\r\n", uri);
     int ret = api.get(uri, buffer, HTTP_CLIENT_DEFAULT_TIMEOUT);
@@ -60,10 +65,14 @@ namespace api {
     * @return JSON root node
   */
   // TODO change body for http map https://developer.mbed.org/teams/Avnet/code/WNCInterface_HTTP_example/docs/tip/main_8cpp_source.html?
-  void post(const char* path, char* body, const char* identifier) {
+  void post(const char* path, char* body, const char* identifier, bool staticAddress) {
     HTTPClient api(identifier);
     char uri[100];
-    strcpy(uri, BASE);
+    if(staticAddress) {
+        strcpy(uri, ethernetAdapterIP);
+    } else {  
+        strcpy(uri, BASE);
+    }  
     strcat(uri, path);
     HTTPText dataOut(body);
     HTTPText dataIn(buffer, BUFFER_SIZE);

@@ -150,11 +150,11 @@ void CheckIfNewFrameIsPresent(void) {
 
 void SetupEthernet(void) {
     INFO_PRINTXYNL(INFO, "\r\nSetting up Ethernet %s...", STATIC_ADR ? "with static address" : "with DHCP");
-    #if STATIC_ADR
+    if(STATIC_ADR) {
         net.init(staticIP, staticMask, staticGateway);
-    #else // DHCP
-        net.init(); 
-    #endif
+    } else {
+        net.init(); // DHCP
+    }
     net.connect();
     const char *ip = net.getIPAddress();
 
@@ -167,7 +167,7 @@ void SetupEthernet(void) {
 void GetOperations(void) {
     INFO_PRINTXNL(INFO, "Get operations thread started.");
     while(true) {
-        api::get("operations/?completed=0", placeIdentifier, operations, ptrGetOperationsThread);
+        api::get("operations/?completed=0", placeIdentifier, operations, ptrGetOperationsThread, STATIC_ADR);
         OperationsParser();
         Thread::wait(10000);
     }
@@ -179,36 +179,7 @@ void PostCompletedOperation(const char operationId[]) {
     strcpy(path, operationsPath);
     strcat(path, operationId);
     strcat(path, operationCompleted);
-    api::post(path, emptyBody, placeIdentifier);
-}
-
-int GetPotIdentiferWithRemote64Address(char potIdentifier[], const uint64_t remote64Adress) {
-    INFO_PRINTXNL(INFO, "getting pot identifer in the map with remote64Adress...");
-    int returnValue = -1;
-    std::map<std::string, uint64_t>::iterator it = serachByValue(xbeeToPotMap, remote64Adress);
-    if(it != xbeeToPotMap.end()) {
-        strcpy(potIdentifier, it->first.c_str());
-        returnValue = 1;
-        INFO_PRINTXYNL(INFO, "pot Identifier is '%s'", potIdentifier);
-    } else {
-        uint32_t highAdr = remote64Adress >> 32;
-        uint32_t lowAdr = remote64Adress;
-        INFO_PRINTXYZNL(INFO, "did not find pot identifier with address '0x%X%X'", highAdr, lowAdr);
-    }
-    return returnValue;
-}
-
-float GetFloatFromData(const char data[], int startDataIndex, int lengthOfFloat) {
-    char buffer[lengthOfFloat];
-
-    for(int i = 0; i < lengthOfFloat; i++)
-        buffer[i] = data[i + startDataIndex];
-        
-    float value;
-    sscanf(buffer, "%f", &value);
-    INFO_PRINTXYNL(INFO, "float value = '%4.2f'", value);
-
-    return value;
+    api::post(path, emptyBody, placeIdentifier, STATIC_ADR);
 }
 
 void PostTimeSeriesData(const char data[], const uint64_t remote64Adress) {
@@ -240,11 +211,40 @@ void PostTimeSeriesData(const char data[], const uint64_t remote64Adress) {
         sprintf(body, "{\"temperature\":\"%4.2f\",\"humidity\":\"%i\",\"luminosity\":\"%i\",\"water_level\":\"%i\",\"pot_identifier\":\"%s""\"\}", temperature, soilHumidity, luminosityPercent, waterLevel, potIdentifier);
         DEBUG_PRINTXYNL(DEBUG, "body is '%s'", body);
 
-        api::post("timeseries/", body, placeIdentifier);
+        api::post("timeseries/", body, placeIdentifier, STATIC_ADR);
         DEBUG_PRINTXYNL(INFO, "ZigBee thread Stack Size: '%d'", ptrZigBeeThread->stack_size());
         DEBUG_PRINTXYNL(INFO, "ZigBee thread Max Stack: '%d'", ptrZigBeeThread->max_stack());
         DEBUG_PRINTXYNL(INFO, "ZigBee thread 'free' Stack: '%d'", ptrZigBeeThread->stack_size() - ptrZigBeeThread->max_stack());
     }
+}
+
+int GetPotIdentiferWithRemote64Address(char potIdentifier[], const uint64_t remote64Adress) {
+    INFO_PRINTXNL(INFO, "getting pot identifer in the map with remote64Adress...");
+    int returnValue = -1;
+    std::map<std::string, uint64_t>::iterator it = serachByValue(xbeeToPotMap, remote64Adress);
+    if(it != xbeeToPotMap.end()) {
+        strcpy(potIdentifier, it->first.c_str());
+        returnValue = 1;
+        INFO_PRINTXYNL(INFO, "pot Identifier is '%s'", potIdentifier);
+    } else {
+        uint32_t highAdr = remote64Adress >> 32;
+        uint32_t lowAdr = remote64Adress;
+        INFO_PRINTXYZNL(INFO, "did not find pot identifier with address '0x%X%X'", highAdr, lowAdr);
+    }
+    return returnValue;
+}
+
+float GetFloatFromData(const char data[], int startDataIndex, int lengthOfFloat) {
+    char buffer[lengthOfFloat];
+
+    for(int i = 0; i < lengthOfFloat; i++)
+        buffer[i] = data[i + startDataIndex];
+        
+    float value;
+    sscanf(buffer, "%f", &value);
+    INFO_PRINTXYNL(INFO, "float value = '%4.2f'", value);
+
+    return value;
 }
 
 void OperationsParser() {

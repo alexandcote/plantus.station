@@ -72,6 +72,7 @@ const char* actionWater = "water";
 const char* staticIP = "192.168.000.002";
 const char* staticMask = "255.255.255.000";
 const char* staticGateway = "192.168.000.001";
+
  
 
 // prototypes
