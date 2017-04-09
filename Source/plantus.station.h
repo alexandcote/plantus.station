@@ -1,3 +1,5 @@
+#pragma once 
+
 #include "mbed.h"
 #include "LPC17xx.h"
 #include "rtos.h"
@@ -90,7 +92,6 @@ void FlashLed(void const *led);
 void GetMacAddress(char *macAdr);
 
 // for debug
-
 #define DEBUG_PRINTX(DEBUG, x) if(DEBUG) {pc.printf(x);}
 #define DEBUG_PRINTXNL(DEBUG, x) if(DEBUG) {pc.printf(x);               pc.printf("\r\n");}
 #define DEBUG_PRINTXY(DEBUG, x, y) if(DEBUG) {pc.printf(x, y);}
