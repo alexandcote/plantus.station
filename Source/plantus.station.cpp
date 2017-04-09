@@ -84,10 +84,10 @@ void NewFrameReceivedHandler(const RemoteXBeeZB& remoteNode, bool broadcast, con
     DEBUG_PRINTXYZNL(DEBUG, "16 bit remote address is: '0x%X' and it is '%s'", remoteNode.get_addr16(), remoteNode.is_valid_addr16b() ? "valid" : "invalid");
     DEBUG_PRINTXYZ(DEBUG, "64 bit remote address is:  '0x%X%X'", highAdr, lowAdr);
     DEBUG_PRINTXYNL(DEBUG, "and it is '%s'", remoteNode.is_valid_addr64b() ? "valid" : "invalid");
-    DEBUG_PRINTX(INFO, "Frame is: ");
+    DEBUG_PRINTX(DEBUG, "Frame is: ");
     for (int i = 0; i < frameLength; i++)
-        DEBUG_PRINTXY(INFO, "0x%X ", frame[i]);
-    DEBUG_PRINTX(INFO, "\r\n");
+        DEBUG_PRINTXY(DEBUG, "0x%X ", frame[i]);
+    DEBUG_PRINTX(DEBUG, "\r\n");
 
     switch(frame[0]) {
         case FRAME_PREFIX_ADD_POT_IDENTIFIER:
@@ -222,39 +222,40 @@ int GetPotIdentiferWithRemote64Address(char potIdentifier[], const uint64_t remo
     return returnValue;
 }
 
-// TODO WIP -> convert the data and create the body
 void PostTimeSeriesData(const char data[], const uint64_t remote64Adress) {
-    //char* templateWithMyValues = "{\"temperature\":\"170\",\"humidity\":\"255\",\"luminosity\":\"189\",\"water_level\":\"171\",\"pot_identifier\":\"7ee45d53-df2a-40e8-a2b3-c32ca07348c0\"}"; // for debuging
-    //char* template = "{\"temperature\":\"10.00\",\"humidity\":\"10.00\",\"luminosity\":\"10.00\",\"water_level\":\"10.00\",\"pot_identifier\":\"7ee45d53-df2a-40e8-a2b3-c32ca07348c0\"}"; // for debuging
-    //INFO_PRINTXYNL(INFO, "test1 is '%s'\r\n", test);
-
     char potIdentifier[POT_IDENTIFIER_LENGTH];
 
     if(GetPotIdentiferWithRemote64Address(potIdentifier, remote64Adress) > 0) {
-        uint16_t luminosity = data[0] << 8;
-        luminosity += data[1];
-        uint16_t luminosityHigh = luminosity >> 8;
-        uint16_t luminosityLow = luminosity;
-        
-        INFO_PRINTXYNL(INFO, "posting luminosity = '%i'", luminosity);
+        int dataIndex = 0;
+        // convert luminosity
+        uint16_t luminosityPercent = data[dataIndex];
+        INFO_PRINTXYNL(INFO, "posting luminosity percent = '%d'", luminosityPercent);
+        dataIndex += LUMINOSITY_DATA_LENGTH;
 
+        // convert temperature
         char temperatureBuffer[TEMPERATURE_DATA_LENGTH];
-        int indexOffset = LUMINOSITY_DATA_LENGTH;
+
         for(int i = 0; i < TEMPERATURE_DATA_LENGTH; i++)
-            temperatureBuffer[i] = data[i + indexOffset];
-
+            temperatureBuffer[i] = data[i + dataIndex];
+            
         float temperature;
-        sscanf(temperatureBuffer,"%f",&temperature);
-        INFO_PRINTXYNL(INFO, "posting temperature = '%4.2f C'", temperature);
+        sscanf(temperatureBuffer, "%f", &temperature);
+        INFO_PRINTXYNL(INFO, "posting temperature = '%4.2f'", temperature);
+        dataIndex += TEMPERATURE_DATA_LENGTH;
+        
+        // convert soi lHumidity
+        uint16_t soilHumidity = data[dataIndex];
+        INFO_PRINTXYNL(INFO, "posting soilHumidity = '%d'", soilHumidity);
+        dataIndex += SOIL_HUMIDITY_DATA_LENGTH;
 
-        uint16_t soilHumidity = data[3];
-        INFO_PRINTXYNL(INFO, "posting soilHumidity = '%i'", soilHumidity);
+        // convert water Level
+        uint16_t waterLevel = data[dataIndex];
+        INFO_PRINTXYNL(INFO, "posting waterLevel = '%d'", waterLevel);
 
-        uint16_t waterLevel = data[4];
-        INFO_PRINTXYNL(INFO, "posting waterLevel = '%i'", waterLevel);
+        // creating body
         char body[200];
-        sprintf(body, "{\"temperature\":\"%4.2f\",\"humidity\":\"%i\",\"luminosity\":\"%i\",\"water_level\":\"%i\",\"pot_identifier\":\"%s""\"\}", temperature, soilHumidity, luminosity, waterLevel, potIdentifier);
-        INFO_PRINTXYNL(INFO, "body is '%s'", body);
+        sprintf(body, "{\"temperature\":\"%4.2f\",\"humidity\":\"%i\",\"luminosity\":\"%i\",\"water_level\":\"%i\",\"pot_identifier\":\"%s""\"\}", temperature, soilHumidity, luminosityPercent, waterLevel, potIdentifier);
+        DEBUG_PRINTXYNL(INFO, "body is '%s'", body);
 
         api::post("timeseries/", body, placeIdentifier);
     }

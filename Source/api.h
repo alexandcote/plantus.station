@@ -161,7 +161,7 @@ namespace api {
     int ret = api.post(uri, dataOut, &dataIn, HTTP_CLIENT_DEFAULT_TIMEOUT);
     if (!ret) {
       printf("Success %d bytes\r\n", strlen(buffer));
-      printf("Result: %s\r\n", buffer);
+      //printf("Result: %s\r\n", buffer);
     } else {
       printf("Error %d - HTTP status: %d\r\n", ret, api.getHTTPResponseCode());
     }
