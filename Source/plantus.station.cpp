@@ -1,31 +1,5 @@
 #include "plantus.station.h"
 
-// For debug
-Serial pc(USBTX, USBRX);   // tx, rx
-#define DEBUG_PRINTX(DEBUG, x) if(DEBUG) {pc.printf(x);}
-#define DEBUG_PRINTXNL(DEBUG, x) if(DEBUG) {pc.printf(x);               pc.printf("\r\n");}
-#define DEBUG_PRINTXY(DEBUG, x, y) if(DEBUG) {pc.printf(x, y);}
-#define DEBUG_PRINTXYNL(DEBUG, x, y) if(DEBUG) {pc.printf(x, y);         pc.printf("\r\n");}
-#define DEBUG_PRINTXYZ(DEBUG, x, y, z) if(DEBUG) {pc.printf(x, y, z);}
-#define DEBUG_PRINTXYZNL(DEBUG, x, y, z) if(DEBUG) {pc.printf(x, y, z);  pc.printf("\r\n");}
-#define INFO_PRINTX(INFO, x) if(INFO) {pc.printf(x);}
-#define INFO_PRINTXNL(INFO, x) if(INFO) {pc.printf(x);               pc.printf("\r\n");}
-#define INFO_PRINTXY(INFO, x, y) if(INFO) {pc.printf(x, y);}
-#define INFO_PRINTXYNL(INFO, x, y) if(INFO) {pc.printf(x, y);         pc.printf("\r\n");}
-#define INFO_PRINTXYZ(INFO, x, y, z) if(INFO) {pc.printf(x, y, z);}
-#define INFO_PRINTXYZNL(INFO, x, y, z) if(INFO) {pc.printf(x, y, z);  pc.printf("\r\n");}
-
-DigitalOut LEDs[4] = {
-    DigitalOut(LED1), DigitalOut(LED2), DigitalOut(LED3), DigitalOut(LED4)
-};
-ConfigFile cfg;
-LocalFileSystem local("local");
-
-std::map<std::string, uint64_t> xbeeToPotMap; // map of known pot with their 64 bits addresses
-api::Operation* operations = new api::Operation[api::maxOperationsLength];
-XBeeZB xBee = XBeeZB(p13, p14, p8, NC, NC, XBEE_BAUD_RATE);
-EthernetInterface net;
-
 void ReadConfigFile(uint16_t *panID) {
     INFO_PRINTXNL(INFO, "\r\nReading configuration file...");
     
@@ -34,7 +8,7 @@ void ReadConfigFile(uint16_t *panID) {
 
     cfg.getValue(CFG_KEY_PAN_ID, configurationValue, BUFSIZ);
     *panID = strtol(configurationValue, NULL, HEXA_BASE);
-    INFO_PRINTXYNL(INFO, "Pan ID: '0x%X'", *panID);
+    DEBUG_PRINTXYNL(DEBUG, "Pan ID: '0x%X'", *panID);
 
     cfg.getValue(CFG_KEY_PLACE_IDENTIFIER, configurationValue, BUFSIZ);
     int i = 0;
@@ -42,12 +16,12 @@ void ReadConfigFile(uint16_t *panID) {
         placeIdentifier[i] = configurationValue[i];
         i++;
     }
+    DEBUG_PRINTXYNL(DEBUG, "Place identifier: '%s'", placeIdentifier);
 
-    INFO_PRINTXYNL(INFO, "Place identifier: '%s'", placeIdentifier);
     INFO_PRINTXNL(INFO, "Reading configuration file finished successfully!!\r\n");
 }
 
-void SetupXBee(uint16_t panID) {
+void SetupXBee(uint16_t *panID) {
     INFO_PRINTXNL(INFO, "\r\nInitiating XBee...");
 
     xBee.register_receive_cb(&NewFrameReceivedHandler);
@@ -58,18 +32,18 @@ void SetupXBee(uint16_t panID) {
     uint64_t Adr64Bits = xBee.get_addr64();
     uint32_t highAdr = Adr64Bits >> 32;
     uint32_t lowAdr = Adr64Bits;
-    INFO_PRINTXYZNL(INFO, "Primary initialization successful, device 64bit Adress = '0x%X%X'", highAdr, lowAdr);
+    DEBUG_PRINTXYZNL(DEBUG, "Primary initialization successful, device 64bit Adress = '0x%X%X'", highAdr, lowAdr);
 
-    radioStatus = xBee.set_panid(panID);
+    radioStatus = xBee.set_panid(*panID);
     MBED_ASSERT(radioStatus == Success);
-    INFO_PRINTXYNL(INFO, "Device PanID was set to '0x%X'", panID);
+    DEBUG_PRINTXYNL(DEBUG, "Device PanID was set to '0x%X'", *panID);
 
-    INFO_PRINTXY(INFO, "Waiting for device to create the network '0x%X'", panID);
+    INFO_PRINTXY(INFO, "Waiting for device to create the network '0x%X'", *panID);
     while (!xBee.is_joined()) {
         wait_ms(1000);
         INFO_PRINTX(INFO, ".");
     }
-    INFO_PRINTXYNL(INFO, "\r\ndevice created network with panID '0x%X' successfully!", panID);
+    INFO_PRINTXYNL(INFO, "\r\ndevice created network with panID '0x%X' successfully!", *panID);
 
     INFO_PRINTXNL(INFO, "XBee initialization finished successfully!\n\r");
 }
@@ -77,18 +51,14 @@ void SetupXBee(uint16_t panID) {
 void NewFrameReceivedHandler(const RemoteXBeeZB& remoteNode, bool broadcast, const uint8_t *const frame, uint16_t frameLength) {
     INFO_PRINTXNL(INFO, "New frame received!");
     uint64_t remote64Adress = remoteNode.get_addr64();
-    uint32_t highAdr = remote64Adress >> 32;
-    uint32_t lowAdr = remote64Adress;
-
     DEBUG_PRINTXYZNL(DEBUG, "\r\nGot a %s RX packet of length '%d'", broadcast ? "BROADCAST" : "UNICAST", frameLength);
     DEBUG_PRINTXYZNL(DEBUG, "16 bit remote address is: '0x%X' and it is '%s'", remoteNode.get_addr16(), remoteNode.is_valid_addr16b() ? "valid" : "invalid");
-    DEBUG_PRINTXYZ(DEBUG, "64 bit remote address is:  '0x%X%X'", highAdr, lowAdr);
-    DEBUG_PRINTXYNL(DEBUG, "and it is '%s'", remoteNode.is_valid_addr64b() ? "valid" : "invalid");
+    /*
     DEBUG_PRINTX(DEBUG, "Frame is: ");
     for (int i = 0; i < frameLength; i++)
         DEBUG_PRINTXY(DEBUG, "0x%X ", frame[i]);
     DEBUG_PRINTX(DEBUG, "\r\n");
-
+    */
     switch(frame[0]) {
         case FRAME_PREFIX_ADD_POT_IDENTIFIER:
             INFO_PRINTXNL(INFO, "Add pot identifier to map frame detected!");
@@ -146,7 +116,7 @@ void AddPotIdentifierToMap(const char potIdentifier[], const uint64_t remote64Ad
     }
 }
 
-void SendFrameToRemote64BitsAdr(uint64_t remote64BitsAdr, char frame[], uint16_t frameLength) {
+void SendFrameToRemote64BitsAdr(const uint64_t remote64BitsAdr, const char frame[], const uint16_t frameLength) {
     DEBUG_PRINTXNL(DEBUG, "sending frame :");
     for(int i = 0; i < frameLength; i++) {
         DEBUG_PRINTXYZNL(DEBUG, "data at index '%i' = '0x%X'", i, frame[i]);
@@ -164,7 +134,7 @@ void SendFrameToRemote64BitsAdr(uint64_t remote64BitsAdr, char frame[], uint16_t
     }
 }
 
-void PrepareFrameToSend(char frame[], char data[], int framePrefix) {
+void PrepareFrameToSend(char frame[], const char data[], const int framePrefix) {
     memset(frame, 0, sizeof(frame)); // start with fresh values
     frame[0] = framePrefix;
     strcat(frame, data);
@@ -180,18 +150,19 @@ void CheckIfNewFrameIsPresent(void) {
 
 void SetupEthernet(void) {
     INFO_PRINTXNL(INFO, "\r\nSetting up Ethernet...");
+
     net.init();
     net.connect();
     const char *ip = net.getIPAddress();
-    INFO_PRINTXY(INFO, "IP address is: %s\r\n", ip ? ip : "No IP");
+    DEBUG_PRINTXY(DEBUG, "IP address is: %s\r\n", ip ? ip : "No IP");
+
     INFO_PRINTXNL(INFO, "Ethernet setup finished successfully!\r\n");
 }
 
 void GetOperations(void) {
     INFO_PRINTXNL(INFO, "Get operations thread started.");
     while(true) {
-        char HTTPresponse[HTTP_RESPONSE_LENGTH];
-        api::get("operations/?completed=0", placeIdentifier, operations);
+        api::get("operations/?completed=0", placeIdentifier, operations, ptrGetOperationsThread);
         OperationsParser();
         Thread::wait(10000);
     }
@@ -222,42 +193,52 @@ int GetPotIdentiferWithRemote64Address(char potIdentifier[], const uint64_t remo
     return returnValue;
 }
 
+float GetFloatFromData(const char data[], int startDataIndex, int lengthOfFloat) {
+    char buffer[lengthOfFloat];
+
+    for(int i = 0; i < lengthOfFloat; i++)
+        buffer[i] = data[i + startDataIndex];
+        
+    float value;
+    sscanf(buffer, "%f", &value);
+    INFO_PRINTXYNL(INFO, "float value = '%4.2f'", value);
+
+    return value;
+}
+
 void PostTimeSeriesData(const char data[], const uint64_t remote64Adress) {
     char potIdentifier[POT_IDENTIFIER_LENGTH];
 
     if(GetPotIdentiferWithRemote64Address(potIdentifier, remote64Adress) > 0) {
         int dataIndex = 0;
-        // convert luminosity
+        // get luminosity
         uint16_t luminosityPercent = data[dataIndex];
         INFO_PRINTXYNL(INFO, "posting luminosity percent = '%d'", luminosityPercent);
         dataIndex += LUMINOSITY_DATA_LENGTH;
 
-        // convert temperature
-        char temperatureBuffer[TEMPERATURE_DATA_LENGTH];
-
-        for(int i = 0; i < TEMPERATURE_DATA_LENGTH; i++)
-            temperatureBuffer[i] = data[i + dataIndex];
-            
-        float temperature;
-        sscanf(temperatureBuffer, "%f", &temperature);
-        INFO_PRINTXYNL(INFO, "posting temperature = '%4.2f'", temperature);
+        // get temperature percent
+        float temperature = GetFloatFromData(data, dataIndex, TEMPERATURE_DATA_LENGTH);
+        INFO_PRINTXYNL(INFO, "posting temperature = '%4.2f C'", temperature);    
         dataIndex += TEMPERATURE_DATA_LENGTH;
         
-        // convert soi lHumidity
+        // get soi lHumidity
         uint16_t soilHumidity = data[dataIndex];
         INFO_PRINTXYNL(INFO, "posting soilHumidity = '%d'", soilHumidity);
         dataIndex += SOIL_HUMIDITY_DATA_LENGTH;
 
-        // convert water Level
+        // get water Level
         uint16_t waterLevel = data[dataIndex];
         INFO_PRINTXYNL(INFO, "posting waterLevel = '%d'", waterLevel);
 
-        // creating body
-        char body[200];
+        // create body
+        char body[300];
         sprintf(body, "{\"temperature\":\"%4.2f\",\"humidity\":\"%i\",\"luminosity\":\"%i\",\"water_level\":\"%i\",\"pot_identifier\":\"%s""\"\}", temperature, soilHumidity, luminosityPercent, waterLevel, potIdentifier);
-        DEBUG_PRINTXYNL(INFO, "body is '%s'", body);
+        DEBUG_PRINTXYNL(DEBUG, "body is '%s'", body);
 
         api::post("timeseries/", body, placeIdentifier);
+        DEBUG_PRINTXYNL(INFO, "ZigBee thread Stack Size: '%d'", ptrZigBeeThread->stack_size());
+        DEBUG_PRINTXYNL(INFO, "ZigBee thread Max Stack: '%d'", ptrZigBeeThread->max_stack());
+        DEBUG_PRINTXYNL(INFO, "ZigBee thread 'free' Stack: '%d'", ptrZigBeeThread->stack_size() - ptrZigBeeThread->max_stack());
     }
 }
 
@@ -293,7 +274,7 @@ void OperationsParser() {
                 if( strcmp(operations[i].action, actionWater) == 0 ) {
                     INFO_PRINTXNL(INFO, "Water action detected, sending to defined pot!");
                     char frameWaterPlant[FRAME_PREFIX_LENGTH + OPERATION_ID_MAX_LENGTH];
-                    PrepareFrameToSend(frameWaterPlant, operations[i].id, FRAME_PREFIX_TURN_WATER_PUMP_ON);      
+                    PrepareFrameToSend(frameWaterPlant, operations[i].id, FRAME_PREFIX_WATER_PLANT);      
                     SendFrameToRemote64BitsAdr(remote64BitsAdr, frameWaterPlant, strlen(frameWaterPlant));
                 } else {
                     INFO_PRINTXYNL(INFO, "Unknown action '%s' detected, nothing will be done!", operations[i].action);
@@ -308,18 +289,23 @@ void OperationsParser() {
 
 int main() {
     INFO_PRINTXNL(DEBUG, "Station node started");
-    SetLedTo(0, true); // Init LED on
-    xbeeToPotMap.insert(std::make_pair("09bcf78c-5dbb-4348-86f4-17853248c65c", 0x0013A20040331988)); // for debug
+    LEDs[0] = true; // Init LED on
+
+    uint16_t panID = 0;
     ReadConfigFile(&panID);
     SetupEthernet();
-    SetupXBee(panID);
+    SetupXBee(&panID);
 
-    Thread zigBeeFrameReceiveThread(CheckIfNewFrameIsPresent, osPriorityHigh, 3072);
-    Thread getOperationsThread(GetOperations, osPriorityNormal, 3072);
+    Thread zigBeeFrameReceiveThread(CheckIfNewFrameIsPresent, osPriorityHigh, ZIGBEE_STACK_SIZE);
+    ptrZigBeeThread = &zigBeeFrameReceiveThread;
+
+    Thread getOperationsThread(GetOperations, osPriorityNormal, OPERATIONS_STACK_SIZE);
+    ptrGetOperationsThread = &getOperationsThread;
+
     Thread flashLed3Thread;
     flashLed3Thread.start(callback(FlashLed, (void *)3));
 
-    SetLedTo(0, false); // Init LED off
+    LEDs[0] = false; // Init LED off
     while (true) {
         Thread::wait(osWaitForever);
     }
@@ -348,24 +334,9 @@ void MapTests(void) {
     }
 }
 
-void SetLedTo(uint16_t led, bool state) {
-    LEDs[led] = state;
-}
-
 void FlashLed(void const *led) {
     while(true) {
         LEDs[(int)led] = !LEDs[(int)led];
         Thread::wait(1000);
     }
-}
-
-void GetMacAddress(char *macAdr) {
-    mbed_mac_address(macAdr);
-    #if DEBUG
-    DEBUG_PRINTX(DEBUG, "\r\nmBed Mac Adress = ");
-     for(int i=0; i<MAC_ADR_LENGTH; i++) {
-        DEBUG_PRINTXY(DEBUG, "%02X ", macAdr[i]);      
-    }   
-    DEBUG_PRINTXNL(DEBUG, "\n\r");
-    #endif
 }
