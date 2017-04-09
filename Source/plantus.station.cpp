@@ -149,12 +149,17 @@ void CheckIfNewFrameIsPresent(void) {
 }
 
 void SetupEthernet(void) {
-    INFO_PRINTXNL(INFO, "\r\nSetting up Ethernet...");
-
-    net.init();
+    INFO_PRINTXYNL(INFO, "\r\nSetting up Ethernet %s...", STATIC_ADR ? "with static address" : "with DHCP");
+    #if STATIC_ADR
+        net.init(staticIP, staticMask, staticGateway);
+    #else // DHCP
+        net.init(); 
+    #endif
     net.connect();
     const char *ip = net.getIPAddress();
-    DEBUG_PRINTXY(DEBUG, "IP address is: %s\r\n", ip ? ip : "No IP");
+
+    DEBUG_PRINTXY(INFO, "IP address is: %s\r\n", ip ? ip : "No IP");
+    MBED_ASSERT(!strcmp(ip, "") == 0);
 
     INFO_PRINTXNL(INFO, "Ethernet setup finished successfully!\r\n");
 }

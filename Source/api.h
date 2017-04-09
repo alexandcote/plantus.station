@@ -19,6 +19,7 @@ namespace api {
   const int maxOperationsLength = OPERATIONS_MAX_LENTH;
   const char* BASE = "http://api.plantus.xyz/";
   char buffer[BUFFER_SIZE];
+  void getOperationsFromResponse(char response[], Operation operations[maxOperationsLength]);
 
   /**
     * GET request
@@ -35,14 +36,52 @@ namespace api {
     int ret = api.get(uri, buffer, HTTP_CLIENT_DEFAULT_TIMEOUT);
     if (!ret) {
       printf("Success %d bytes\r\n", strlen(buffer));
+      getOperationsFromResponse(buffer, operations);
+    } else {
+      printf("Error %d - HTTP status: %d\r\n", ret, api.getHTTPResponseCode());
+      for(int i = 0; i < maxOperationsLength; i++) { 
+        // reset values
+        strncpy(operations[i].id, "\0", 1);
+        strncpy(operations[i].potIdentifer, "\0", 1);
+        strncpy(operations[i].action, "\0", 1);
+      }
+    }
+      printf("Operations thread Stack Size: '%d'\r\n", ptrGetOperationsThread->stack_size());
+      printf("Operations thread Max Stack: '%d'\r\n", ptrGetOperationsThread->max_stack());
+      printf("Operations thread 'free' Stack: '%d'\r\n", ptrGetOperationsThread->stack_size() - ptrGetOperationsThread->max_stack());
+   }
+
+
+  /**
+    * POST request
+    * @param [path] path to fetch
+    * @param [body] json body to send
+    * @param [identifier] place identifier
+    * @return JSON root node
+  */
+  // TODO change body for http map https://developer.mbed.org/teams/Avnet/code/WNCInterface_HTTP_example/docs/tip/main_8cpp_source.html?
+  void post(const char* path, char* body, const char* identifier) {
+    HTTPClient api(identifier);
+    char uri[100];
+    strcpy(uri, BASE);
+    strcat(uri, path);
+    HTTPText dataOut(body);
+    HTTPText dataIn(buffer, BUFFER_SIZE);
+    printf("\r\nPOST %s\r\n", uri);
+    int ret = api.post(uri, dataOut, &dataIn, HTTP_CLIENT_DEFAULT_TIMEOUT);
+    if (!ret) {
+      printf("Success %d bytes\r\n", strlen(buffer));
       //printf("Result: %s\r\n", buffer);
     } else {
       printf("Error %d - HTTP status: %d\r\n", ret, api.getHTTPResponseCode());
     }
+  }
 
-    Json json(buffer, strlen(buffer), 60);
+
+  void getOperationsFromResponse(char response[], Operation operations[maxOperationsLength]) {
+    Json json(response, strlen(response), 60);
     if (!json.isValidJson() || json.type(0) != JSMN_OBJECT) {
-        printf("Invalid JSON: %s", buffer);
+        printf("Invalid JSON: %s", response);
         return;
     }
 
@@ -128,34 +167,5 @@ namespace api {
           }
         }
       }
-        printf("Operations thread Stack Size: '%d'\r\n", ptrGetOperationsThread->stack_size());
-        printf("Operations thread Max Stack: '%d'\r\n", ptrGetOperationsThread->max_stack());
-        printf("Operations thread 'free' Stack: '%d'\r\n", ptrGetOperationsThread->stack_size() - ptrGetOperationsThread->max_stack());
-   }
-
-
-  /**
-    * POST request
-    * @param [path] path to fetch
-    * @param [body] json body to send
-    * @param [identifier] place identifier
-    * @return JSON root node
-  */
-  // TODO change body for http map https://developer.mbed.org/teams/Avnet/code/WNCInterface_HTTP_example/docs/tip/main_8cpp_source.html?
-  void post(const char* path, char* body, const char* identifier) {
-    HTTPClient api(identifier);
-    char uri[100];
-    strcpy(uri, BASE);
-    strcat(uri, path);
-    HTTPText dataOut(body);
-    HTTPText dataIn(buffer, BUFFER_SIZE);
-    printf("\r\nPOST %s\r\n", uri);
-    int ret = api.post(uri, dataOut, &dataIn, HTTP_CLIENT_DEFAULT_TIMEOUT);
-    if (!ret) {
-      printf("Success %d bytes\r\n", strlen(buffer));
-      //printf("Result: %s\r\n", buffer);
-    } else {
-      printf("Error %d - HTTP status: %d\r\n", ret, api.getHTTPResponseCode());
     }
-  }
 }

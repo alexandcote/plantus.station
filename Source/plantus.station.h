@@ -21,6 +21,7 @@ using namespace XBeeLib;
 #define HTTP_RESPONSE_LENGTH 1024
 #define PLACE_IDENTIFIER_LENGTH 37
 #define ACTION_WATER "water"
+#define STATIC_ADR false
 
 // used for XBee
 #define XBEE_BAUD_RATE 115200
@@ -44,7 +45,6 @@ using namespace XBeeLib;
 #define CFG_PATH "/local/config.cfg"
 #define CFG_KEY_PAN_ID "PAN_ID"
 #define CFG_KEY_PLACE_IDENTIFIER "PLACE_IDENTIFIER"
-
 #define ZIGBEE_STACK_SIZE 512*5
 #define OPERATIONS_STACK_SIZE 512*5
 
@@ -69,6 +69,9 @@ char placeIdentifier[PLACE_IDENTIFIER_LENGTH];
 const char* operationsPath = "operations/";
 const char* operationCompleted = "/completed/";
 const char* actionWater = "water";
+const char* staticIP = "192.168.000.002";
+const char* staticMask = "255.255.255.000";
+const char* staticGateway = "192.168.000.001";
  
 
 // prototypes
