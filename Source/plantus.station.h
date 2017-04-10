@@ -6,7 +6,7 @@
 #include "ConfigFile.h"
 #include "XBeeLib.h"
 #include "EthernetInterface.h"
-#include "api.h"
+#include "plantus.api.h"
 #include "Json.h"
 #include <map>
 #include <string>
@@ -72,8 +72,6 @@ const char* actionWater = "water";
 const char* staticIP = "192.168.000.002";
 const char* staticMask = "255.255.255.000";
 const char* staticGateway = "192.168.000.001";
-
- 
 
 // prototypes
 void ReadConfigFile(uint16_t *panID);
