@@ -49,7 +49,7 @@ void SetupXBee(uint16_t *panID) {
 }
 
 void NewFrameReceivedHandler(const RemoteXBeeZB& remoteNode, bool broadcast, const uint8_t *const frame, uint16_t frameLength) {
-    INFO_PRINTXNL(INFO, "New frame received!");
+    INFO_PRINTXNL(INFO, "\r\nNew frame received!");
     uint64_t remote64Adress = remoteNode.get_addr64();
     DEBUG_PRINTXYZNL(DEBUG, "\r\nGot a %s RX packet of length '%d'", broadcast ? "BROADCAST" : "UNICAST", frameLength);
     DEBUG_PRINTXYZNL(DEBUG, "16 bit remote address is: '0x%X' and it is '%s'", remoteNode.get_addr16(), remoteNode.is_valid_addr16b() ? "valid" : "invalid");
